@@ -1,5 +1,3 @@
-from urllib import parse
-from PyPDF2 import PdfReader
 import re
 import datetime 
 import pickle 
@@ -7,17 +5,30 @@ import os.path
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build 
 from google.auth.transport.requests import Request
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextContainer
 
-reader = PdfReader('MyUW.pdf')
+file_path = 'MyUW.pdf'
 text = ""
 
-for i in range(1, len(reader.pages)):
-    text += reader.pages[i].extract_text()
+for page_num, page in enumerate(extract_pages(file_path)):
+    if page_num == 0:
+        continue
+    for element in page:
+        if isinstance(element, LTTextContainer):
+            if "MyUW" in element.get_text() or "https://my.wisc.edu/" in element.get_text():
+                continue
+            text += element.get_text()
 
-# Replacing non-breaking spaces with regular spaces
+
 text = text.replace('\xa0', ' ')
 
+def strip_dates(text):
+    date_pattern = re.compile(r'\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2} [APM]{2}')
+    return date_pattern.sub('', text)
+
 def parse_schedule(s):
+    s = strip_dates(s)
     # List of days
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     # Identify where each day starts in the string
@@ -25,14 +36,14 @@ def parse_schedule(s):
     # Create slices based on the found days
     slices = [s[start:end] for (day, start), (_, end) in zip(day_positions, day_positions[1:] + [(None, None)])]
     # Regex pattern to parse courses, location, and timing
-    pattern = re.compile(r'(E C E \d+:  [a-zA-Z ]+|COMP SCI \d+:  [a-zA-Z ]+)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n([\w\s\d]+)\n([\d:]+ [APM]+ to [\d:]+ [APM]+)')
+    # pattern = re.compile(r'(E C E \d+:  [a-zA-Z ]+|COMP SCI \d+:  [a-zA-Z ]+)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n([\w\s\d]+)\n([\d:]+ [APM]+ to [\d:]+ [APM]+)')
+    pattern = re.compile(r'([A-Z ]+ \d+:  [a-zA-Z ]+)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n([\w\s\d]+)\n([\d:]+ [APM]+ to [\d:]+ [APM]+)') 
     data = {}
     for day, slice_data in zip([day for day, _ in day_positions], slices):
         matches = pattern.findall(slice_data)
         if matches:
             data[day] = [{"course": match[0], "location": match[2], "time": match[3]} for match in matches]
     return data
-
 
 parsed_data = parse_schedule(text)
 
@@ -86,12 +97,13 @@ def add_schedule_to_calendar(parsed_data, calendar_service):
                 'location': class_info["location"],
                 'start': {
                     'dateTime': start_datetime.isoformat(),
-                    'timeZone': 'America/Chicago',  # e.g., 'America/Los_Angeles'
+                    'timeZone': 'America/Chicago', 
                 },
                 'end': {
                     'dateTime': end_datetime.isoformat(),
                     'timeZone': 'America/Chicago',
                 },
+                'recurrence': ['RRULE:FREQ=WEEKLY;UNTIL=20231225T235959Z'],
                 'reminders': {
                     'useDefault': True,
                 },
