@@ -7,21 +7,24 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer
+from google.oauth2.credentials import Credentials
 
-file_path = 'MyUW.pdf'
-text = ""
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+# file_path = 'MyUW.pdf'
+# text = ""
 
-for page_num, page in enumerate(extract_pages(file_path)):
-    if page_num == 0:
-        continue
-    for element in page:
-        if isinstance(element, LTTextContainer):
-            if "MyUW" in element.get_text() or "https://my.wisc.edu/" in element.get_text():
-                continue
-            text += element.get_text()
-
-
-text = text.replace('\xa0', ' ')
+def extract_text_from_pdf(file_path, text):
+    for page_num, page in enumerate(extract_pages(file_path)):
+        if page_num == 0:
+            continue
+        for element in page:
+            if isinstance(element, LTTextContainer):
+                if "MyUW" in element.get_text() or "https://my.wisc.edu/" in element.get_text():
+                    continue
+                text += element.get_text()
+    
+    text = text.replace('\xa0', ' ')
+    return text 
 
 def strip_dates(text):
     date_pattern = re.compile(r'\d{1,2}/\d{1,2}/\d{2}, \d{1,2}:\d{2} [APM]{2}')
@@ -45,26 +48,26 @@ def parse_schedule(s):
             data[day] = [{"course": match[0], "location": match[2], "time": match[3]} for match in matches]
     return data
 
-parsed_data = parse_schedule(text)
-
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-
-def authenticate_with_google():
-    creds = None 
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+# def authenticate_with_google():
+#     creds = None 
+#     if os.path.exists('token.pickle'):
+#         with open('token.pickle', 'rb') as token:
+#             creds = pickle.load(token)
     
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('client_secret_643971126542-7udc7gg0usomvgl79jke8llna7nsssrb.apps.googleusercontent.com.json', SCOPES)
-            creds = flow.run_local_server(port = 8080)
-            with open('token.pickle', 'wb') as token:
-                pickle.dump(creds, token)
+#     if not creds or not creds.valid:
+#         if creds and creds.expired and creds.refresh_token:
+#             creds.refresh(Request())
+#         else:
+#             flow = InstalledAppFlow.from_client_secrets_file('client_secret_643971126542-7udc7gg0usomvgl79jke8llna7nsssrb.apps.googleusercontent.com.json', SCOPES)
+#             creds = flow.run_local_server(port = 8080)
+#             with open('token.pickle', 'wb') as token:
+#                 pickle.dump(creds, token)
     
-    service = build('calendar', 'v3', credentials=creds)
+#     service = build('calendar', 'v3', credentials=creds)
+#     return service
+
+def authenticate_with_google(credentials: Credentials) -> any:
+    service = build('calendar', 'v3', credentials=credentials)
     return service
 
 def add_schedule_to_calendar(parsed_data, calendar_service):
@@ -112,5 +115,6 @@ def add_schedule_to_calendar(parsed_data, calendar_service):
             event = calendar_service.events().insert(calendarId='primary', body=event).execute()
             print('Event created: %s' % (event.get('htmlLink')))
 
-service = authenticate_with_google()
-add_schedule_to_calendar(parsed_data, service)
+# parsed_data = parse_schedule(extract_text_from_pdf(file_path, text))
+# service = authenticate_with_google()
+# add_schedule_to_calendar(parsed_data, service)
