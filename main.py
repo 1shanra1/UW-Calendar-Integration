@@ -105,14 +105,14 @@ def get_db():
 @app.get("/login")
 def login():
     user_id = str(uuid.uuid4())  # create a unique user identifier
-    flow = Flow.from_client_secrets_file(CLIENT_SECRET, scopes=SCOPES, redirect_uri="http://localhost:8000/login/callback")
+    flow = Flow.from_client_secrets_file(CLIENT_SECRET, scopes=SCOPES, redirect_uri="http://3.22.240.138:8000/login/callback")
     authorization_url, state = flow.authorization_url(prompt="consent", state=user_id)
     return RedirectResponse(authorization_url)
 
 @app.get("/login/callback")
 def callback(state: str = "", code: str = "", db: Session = Depends(get_db)):
     user_id = state  # state is the user_id we sent during login
-    flow = Flow.from_client_secrets_file(CLIENT_SECRET, scopes=SCOPES, state=state, redirect_uri="http://localhost:8000/login/callback")
+    flow = Flow.from_client_secrets_file(CLIENT_SECRET, scopes=SCOPES, state=state, redirect_uri="http://3.22.240.138:8000/login/callback")
     flow.fetch_token(code=code)
     credentials = flow.credentials
 
