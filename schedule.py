@@ -40,7 +40,7 @@ def parse_schedule(s):
     slices = [s[start:end] for (day, start), (_, end) in zip(day_positions, day_positions[1:] + [(None, None)])]
     # Regex pattern to parse courses, location, and timing
     # pattern = re.compile(r'(E C E \d+:  [a-zA-Z ]+|COMP SCI \d+:  [a-zA-Z ]+)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n([\w\s\d]+)\n([\d:]+ [APM]+ to [\d:]+ [APM]+)')
-    pattern = re.compile(r'([A-Z ]+ \d+:  [a-zA-Z ]+)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n([\w\s\d]+)\n([\d:]+ [APM]+ to [\d:]+ [APM]+)') 
+    pattern = re.compile(r'([A-Z ]+ \d+:  .+?)(?:\n(LAB \d+|LEC \d+|DIS \d+))?\n(.+?)\n((?:\d{1,2}:\d{2} [APM]{2}) to (?:\d{1,2}:\d{2} [APM]{2}))') 
     data = {}
     for day, slice_data in zip([day for day, _ in day_positions], slices):
         matches = pattern.findall(slice_data)
@@ -93,6 +93,11 @@ def add_schedule_to_calendar(parsed_data, calendar_service):
                     'useDefault': True,
                 },
             }
+
+            print(event.get('summary'))
+            start_datetime_human_readable = start_datetime.strftime('%A, %B %d, %Y %I:%M %p')
+            print(start_datetime_human_readable)
+            print()
 
             event = calendar_service.events().insert(calendarId='primary', body=event).execute()
             print('Event created: %s' % (event.get('htmlLink')))
